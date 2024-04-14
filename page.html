@@ -1,0 +1,145 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Income Form</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    .tooltip { display:none; position:absolute; }
+    .error-visible .tooltip { display:block; }
+    .modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000; /* High enough to be on top of other content */
+  }
+
+  .modal-content {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    z-index: 1001;
+  }
+  </style>
+</head>
+<body>
+  <income-form></income-form>
+  <script>
+    const inputClasses = "mt-1 block w-full px-3 py-2 bg-white border border-zinc-300 rounded-md shadow-sm placeholder-zinc-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500";
+    const labelClasses = "block text-sm font-medium text-zinc-700 dark:text-zinc-200";
+    const spanClasses = "text-zinc-400 text-xs";
+    const buttonClasses = "w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500";
+    customElements.define('income-form', class extends HTMLElement {
+      connectedCallback() {
+        this.innerHTML = `
+          <div class="max-w-md mx-auto bg-white rounded-lg shadow-md overflow-hidden p-6 mt-10">
+            <form class="space-y-4" id="incomeForm">
+              <div>
+                <label for="grossIncome" class="${labelClasses}">Enter gross annual income
+                  <span class="${spanClasses}">(?)</span>
+                </label>
+                <input type="number" id="grossIncome" name="grossIncome" class="${inputClasses}" placeholder="Enter gross annual income">
+                <p class="mt-2 text-xs text-zinc-500">Please enter numbers only</p>
+                <span class="error-icon tooltip">!</span>
+              </div>
+              <div>
+                <label for="extraIncome" class="${labelClasses}">Enter extra income
+                  <span class="${spanClasses}">(?)</span>
+                </label>
+                <input type="number" id="extraIncome" name="extraIncome" class="${inputClasses}" placeholder="Enter extra income from other sources">
+                <span class="error-icon tooltip">!</span>
+              </div>
+              <div>
+                <label for="ageGroup" class="${labelClasses}">Enter age group
+                  <span class="${spanClasses}">(?)</span>
+                </label>
+                <select id="ageGroup" name="ageGroup" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-zinc-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                  <option value="">Choose age group</option>
+                  <option value="<40"><40</option>
+                  <option value="40-59">≥ 40 & < 60</option>
+                  <option value=">=60">≥ 60</option>
+                </select>
+                <span class="error-icon tooltip">!</span>
+              </div>
+              <div>
+                <label for="deductions" class="${labelClasses}">Enter total applicable deductions
+                  <span class="${spanClasses}">(?)</span>
+                </label>
+                <input type="number" id="deductions" name="deductions" class="${inputClasses}" placeholder="Add total applicable deductions">
+                <span class="error-icon tooltip">!</span>
+              </div>
+              <button type="submit" class="${buttonClasses}">Submit</button>
+            </form>
+          </div>
+        `;
+        this.querySelector('#incomeForm').addEventListener('submit', this.handleFormSubmit.bind(this));
+      }
+
+    handleFormSubmit(event) {
+  event.preventDefault();
+  console.log("Form submitted"); // Debug log
+
+  const grossIncome = parseFloat(document.getElementById('grossIncome').value) || 0;
+  const extraIncome = parseFloat(document.getElementById('extraIncome').value) || 0;
+  const deductions = parseFloat(document.getElementById('deductions').value) || 0;
+  const ageGroup = document.getElementById('ageGroup').value;
+
+  let taxableIncome = grossIncome + extraIncome - deductions;
+  let tax = 0;
+
+  if (taxableIncome > 800000) {
+    switch (ageGroup) {
+      case '<40':
+        tax = 0.3 * (taxableIncome - 800000);
+        break;
+      case '40-59':
+        tax = 0.4 * (taxableIncome - 800000);
+        break;
+      case '>=60':
+        tax = 0.1 * (taxableIncome - 800000);
+        break;
+      default:
+        document.getElementById('ageGroup').parentNode.classList.add('error-visible');
+        console.log("Age group error"); // Debug log
+        return;
+    }
+  }
+
+  console.log("Net Income:", taxableIncome - tax); // Debug log
+  this.showResultModal(taxableIncome - tax);
+}
+
+    showResultModal(netIncome) {
+
+  const existingModal = document.querySelector('.modal-backdrop');
+  if (existingModal) {
+    existingModal.remove();
+  }
+
+  const modalHtml = `
+    <div class="modal-backdrop" onclick="event.target.style.display='none';">
+      <div class="modal-content" onclick="event.stopPropagation();"> <!-- Prevents click inside the modal from closing it -->
+        <h2 class="text-2xl font-semibold text-zinc-800 dark:text-white mb-2">Your overall income will be</h2>
+        <p class="text-5xl text-indigo-600 mb-3">${netIncome.toLocaleString()}</p>
+        <p class="text-zinc-600 dark:text-zinc-400 text-sm mb-6">after tax deductions</p>
+        <button class="bg-indigo-500 text-white px-6 py-2 rounded-lg focus:outline-none hover:bg-indigo-600 transition-colors" onclick="document.querySelector('.modal-backdrop').remove();">Close</button>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+    });
+  </script>
+</body>
+</html>
